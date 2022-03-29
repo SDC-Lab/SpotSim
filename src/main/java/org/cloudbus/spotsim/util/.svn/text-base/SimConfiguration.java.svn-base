@@ -1,0 +1,94 @@
+package org.cloudbus.spotsim.util;
+
+//import gridsim.parallel.log.LoggerEnum;
+//import gridsim.parallel.log.Logging;
+import org.cloudbus.cloudsim.Log;
+
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.util.Iterator;
+import java.util.Properties;
+import java.util.logging.Level;
+
+/**
+ * Loading/managing InterGrid Gateway configuration.
+ * @author Alexandre di Costanzo
+ */
+public class SimConfiguration implements Iterable<Object>{
+//	private static Logger logger = Logging.getLogger(LoggerEnum.UTIL); 
+
+//    private static final Logger logger = InterGridLogger.getLogger(Loggers.UTIL);
+    private static final String DEFAULT_PATH = "org/cloudbus/spotsim/util/default.properties";
+    private static SimConfiguration singleton;
+    private Properties default_properties;
+    private Properties properties;
+
+    private SimConfiguration() {
+        // 1. Load default properties
+        default_properties = new Properties();
+        InputStream in = SimConfiguration.class.getClassLoader().getResourceAsStream(DEFAULT_PATH);
+        try {
+            default_properties.load(in);
+            in.close();
+        } catch (IOException ex) {
+        	Log.logger.log(Level.WARNING, "Cannot open default properties file", ex);
+            System.exit(2);
+        }
+        this.properties = new Properties(default_properties);
+
+        // 2. Read user's properties
+        try {
+            in = new FileInputStream(this.properties.getProperty("user_path").replace('/', File.separatorChar));
+            this.properties.load(in);
+            in.close();
+        } catch (IOException ex) {
+            Log.logger.log(Level.WARNING, "Cannot open user properties file", ex);
+        }
+
+        // 3. Read system properties
+        for (Object p : System.getProperties().keySet()) {
+            this.properties.setProperty((String) p, System.getProperty((String) p));
+        }
+
+//        if (logger.isDebugEnabled()) {
+//            logger.debug(this.properties.toString().replace(',', '\n'));
+//       }
+    }
+
+    /**
+     * Returns the value of a property
+     * @param key the property to look for
+     * @return the value of the property
+     */
+    public String getProperty(String key) {
+        return this.properties.getProperty(key);
+    }
+
+    /**
+     * Sets the value of a property
+     * @param key the key for the property
+     * @param value the value of a property
+     * @return
+     */
+    public Object setProperty(String key, String value) {
+        return this.properties.setProperty(key, value);
+    }
+    
+    /**
+     * 
+     * @return the singleton reference.
+     */
+    public static synchronized SimConfiguration getInstance() {
+        if (singleton == null) {
+            singleton = new SimConfiguration();
+        }
+        return singleton;
+    }
+
+	@Override
+	public Iterator<Object> iterator() {
+		return properties.keySet().iterator();
+	}
+}

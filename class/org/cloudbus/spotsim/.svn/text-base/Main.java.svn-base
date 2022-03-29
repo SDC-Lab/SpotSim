@@ -1,0 +1,248 @@
+package org.cloudbus.spotsim;
+
+import java.util.Calendar;
+import java.util.Collection;
+import java.util.GregorianCalendar;
+import java.util.Iterator;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Random;
+import java.util.TimeZone;
+
+import org.cloudbus.cloudsim.Log;
+import org.cloudbus.cloudsim.core.CloudSim;
+import org.cloudbus.cloudsim.util.workload.Job;
+import org.cloudbus.cloudsim.util.workload.WorkloadFileReader;
+import org.cloudbus.spotsim.cloud.ComputeCloud;
+import org.cloudbus.spotsim.cloud.InstanceType;
+import org.cloudbus.spotsim.cloud.InstanceType.OS;
+import org.cloudbus.spotsim.cloud.InstanceType.Region;
+import org.cloudbus.spotsim.cloud.broker.ComputeCloudClient;
+import org.cloudbus.spotsim.cloud.broker.ComputeCloudClientSimple;
+import org.cloudbus.spotsim.cloud.spothistory.SpotPriceHistory;
+import org.cloudbus.spotsim.cloud.spothistory.SpotPriceHistory.PriceTraceMethod;
+import org.cloudbus.spotsim.util.SimParameters;
+
+public class Main {
+
+//    private static final int REPEAT = 1;
+//    private static final String WORKLOAD_FILE = "LCG-2005-1.swf";
+	private static long seed;
+	private static Random random = null;
+	private static String method = null;
+	private static PriceTraceMethod priceMethod = null;
+	private static GregorianCalendar startTime;
+	private static GregorianCalendar endTime;
+	
+    public static void main(String... args) throws Exception {
+    int rounds = 0;
+    int round;
+
+	System.out.println("Start Simulation ....");
+
+	TimeZone.setDefault(TimeZone.getTimeZone("GMT"));
+
+	try {
+		rounds = Integer.parseInt(SimParameters.SIMULATION_ROUNDS.getValue());
+	} catch(NumberFormatException ex){
+		Log.logger.severe("Invalid round number!");
+		System.exit(-1);
+	}
+
+	runReplicaSim(rounds);
+    }
+
+    private static void runSim() {
+	CloudSim.startSimulation();
+	CloudSim.stopSimulation();
+    }
+
+    /*
+     * Reads a workload trace in the SWF format
+     * 
+     * @return
+     */
+    private static List<Job> readWorkloadJobs() {
+    String traceName = SimParameters.WORKLOAD_FILE.getValue();
+	int mips = Integer.parseInt(SimParameters.CLOUD_CORES_MIPS.getValue());
+
+	WorkloadFileReader reader = new WorkloadFileReader(traceName, mips);
+
+	reader.setField(18, 1, 2, 4, 5);
+	reader.setComment(";");
+
+	List<Job> generatedWorkload = reader.generateWorkload();
+
+	return generatedWorkload;
+    }
+    
+    /*
+     * Run the simulation
+     */
+    private static void runReplicaSim(Integer round) throws Exception {
+
+    ComputeCloud cloud = null;
+    ComputeCloudClient client = null;
+    Region region = null;
+	InstanceType type = null;
+	Double bidPrice;
+	OS os = null;
+
+	if (SimParameters.CLOUD_REGION.getValue().equals("us-east"))
+		region = Region.US_EAST;
+	else if (SimParameters.CLOUD_REGION.getValue().equals("us-west"))
+		region = Region.US_WEST;
+	else if (SimParameters.CLOUD_REGION.getValue().equals("eu-west"))
+		region = Region.EUROPE;
+	else if (SimParameters.CLOUD_REGION.getValue().equals("ap-southeast"))
+		region = Region.APAC;
+	System.out.println("Cloud region: "+region.getAmazonName());
+	
+	if (SimParameters.CLOUD_INSTANCE_OS.getValue().equals("linux"))
+		os = OS.LINUX;
+	else if (SimParameters.CLOUD_INSTANCE_OS.getValue().equals("windows"))
+		os = OS.WINDOWS;
+
+	if (SimParameters.CLOUD_INSTANCE_TYPE.getValue().equals("m1.small"))
+		type = InstanceType.M1SMALL;
+	else if (SimParameters.CLOUD_INSTANCE_TYPE.getValue().equals("c1.medium"))
+		type = InstanceType.C1MEDIUM;
+	else if (SimParameters.CLOUD_INSTANCE_TYPE.getValue().equals("m1.large"))
+		type = InstanceType.M1LARGE;
+	else if (SimParameters.CLOUD_INSTANCE_TYPE.getValue().equals("m2.xlarge"))
+		type = InstanceType.M2XLARGE;
+	else if (SimParameters.CLOUD_INSTANCE_TYPE.getValue().equals("m1.xlarge"))
+		type = InstanceType.M1XLARGE;
+	else if (SimParameters.CLOUD_INSTANCE_TYPE.getValue().equals("c1.xlarge"))
+		type = InstanceType.C1XLARGE;
+	else if (SimParameters.CLOUD_INSTANCE_TYPE.getValue().equals("m2.2xlarge"))
+		type = InstanceType.M22XLARGE;
+	else if (SimParameters.CLOUD_INSTANCE_TYPE.getValue().equals("m2.4xlarge"))
+		type = InstanceType.M24XLARGE;
+	System.out.println("Cloud instance type: "+type.getName());
+
+	
+	bidPrice = Double.parseDouble(SimParameters.CLOUD_SPOT_BID.getValue());
+	if (bidPrice==0) 
+		// user bid as high as on-demand instance 
+		bidPrice = type.getOnDemandPrice(region, os);
+
+	System.out.println("User Bid price: "+bidPrice);
+
+	// start and end time
+   	startTime = new GregorianCalendar(
+			Integer.parseInt(SimParameters.CLOUD_SPOT_PRICE_START_YEAR.getValue()), 
+	Integer.parseInt(SimParameters.CLOUD_SPOT_PRICE_START_MONTH.getValue())-1,1);
+   	endTime = new GregorianCalendar(
+	Integer.parseInt(SimParameters.CLOUD_SPOT_PRICE_END_YEAR.getValue()), 
+	Integer.parseInt(SimParameters.CLOUD_SPOT_PRICE_END_MONTH.getValue())-1,1);
+
+    seed = getSimulationSeed(Long.parseLong(SimParameters.SIMULATION_SEED.getValue()), round);
+	random = new Random(seed);
+   	Collection<GregorianCalendar> dates = generateRandomDates(startTime,endTime, round);
+	
+	// number of jobs in the workload
+	int jobs = Integer.parseInt(SimParameters.WORKLOAD_JOBS.getValue());
+	
+	// price method
+	method = SimParameters.CLOUD_SPOT_PRICE_METHOD.getValue();
+	System.out.println("Cloud instance price method: "+method);
+
+	if (method.equals("history")){
+    	priceMethod = PriceTraceMethod.HISTORY;
+    }
+    else if (method.equals("model")){
+    	priceMethod = PriceTraceMethod.RANDOM;
+    }
+	// cloud strategy
+	String strategy = SimParameters.CLOUD_STRATEGY.getValue();
+    System.out.println("Stategy for cloud: "+ strategy);
+
+	round = 1;
+	
+	// loop for rounds
+	for (GregorianCalendar d : dates) {
+
+	    List<Job> allJobs = readWorkloadJobs();
+	    List<Job> sublist = allJobs.subList(0, jobs);
+	    // List<Job> sublist = allJobs;
+
+	    String key = Log.formatDate(d.getTime());
+
+	    System.out.println("------------ Round:" +round +", Starting for date: " + key);
+
+	    CloudSim.init(1, null, true);
+
+	    GregorianCalendar dPlus = (GregorianCalendar) d.clone();
+	    // number of days to load
+		int numDays = Integer.parseInt(SimParameters.CLOUD_SPOT_HISTORY_DAY_OF_MONTH.getValue());
+	    dPlus.add(Calendar.DAY_OF_MONTH, numDays);
+	    
+	    // generate new seed
+	    seed = getSimulationSeed(Long.parseLong(SimParameters.SIMULATION_SEED.getValue()), round);
+	    SpotPriceHistory.init(false, priceMethod, d, dPlus, seed);
+
+	    int numNodes = Integer.parseInt(SimParameters.CLOUD_NUMBER_NODES.getValue());
+	    cloud = new ComputeCloud(numNodes);
+        
+	    Iterator<Job> iterator = sublist.iterator();
+	    while (iterator.hasNext()) {
+		Job j = iterator.next();
+		if (j.getCloudlet().getCloudletLength() <= 0) {
+		    iterator.remove();
+		}
+	    }
+
+	    // Create a client
+        if(strategy.toLowerCase().equals("will")) {
+        	client = new ComputeCloudClient("client1", cloud);
+        }
+        if(strategy.toLowerCase().equals("simple")) {
+        	client = new ComputeCloudClientSimple("client1", cloud);
+        }
+	    client.addJobs(sublist);
+
+	    // Go go go
+	    runSim();
+
+	    // Grab simulation statistics
+	    String reskey; 
+	    reskey = String.format("report_%d_%s_Bid_%.3f", round, type.toString(),bidPrice);
+	    Results.persistResults(reskey, client.getData(),region, method);
+	    round++;
+	}
+    }
+
+    /*
+     * Generate a random start time for the price history
+     */
+    private static Collection<GregorianCalendar> generateRandomDates(GregorianCalendar startTime,
+	    GregorianCalendar endTime, int numOfDates) {
+
+	long diff = endTime.getTimeInMillis() - startTime.getTimeInMillis();
+//	Random random = new Random(seed);
+
+	Collection<GregorianCalendar> ret = new LinkedList<GregorianCalendar>();
+
+	for (int i = 0; i < numOfDates; i++) {
+	    GregorianCalendar date = new GregorianCalendar();
+	    date.setTimeInMillis((long) (startTime.getTimeInMillis() + random.nextDouble() * diff));
+	    ret.add(date);
+	}
+	return ret;
+    }
+
+/*
+ * Generates the final seed for the simulation based on the original
+ * seed put in the configuration file and the current simulation round
+ */
+private static long getSimulationSeed(long originalSeed, int round) {
+	long finalSeed = originalSeed;
+	Random generator = new Random(originalSeed);
+	int last = round * 10;
+	for(int i=0; i<last; i++) {
+		finalSeed = generator.nextLong();
+	}
+	return finalSeed;
+}
+}

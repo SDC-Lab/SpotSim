@@ -1,0 +1,58 @@
+package org.cloudbus.spotsim.cloud.broker;
+
+import java.util.Comparator;
+
+import lombok.AllArgsConstructor;
+import lombok.Data;
+
+import org.cloudbus.cloudsim.util.workload.Job;
+import org.cloudbus.spotsim.cloud.Instance;
+import org.cloudbus.spotsim.cloud.InstanceType;
+
+@Data
+@AllArgsConstructor
+public class SchedulingDecision {
+    
+    private final Job job;
+
+    private final InstanceType chosenInstanceType;
+    
+    private final Instance instance;
+    
+    private boolean startNewInstance;
+
+    private final long startTime;
+    
+    private final double cost;
+    
+    private final double bidPrice;
+    
+    private static Comparator<SchedulingDecision> timeComparator = new Comparator<SchedulingDecision>() {
+
+	@Override
+	public int compare(SchedulingDecision o1, SchedulingDecision o2) {
+	    
+	    return new Long(o1.getStartTime()).compareTo(o2.getStartTime());
+	}
+    };
+    
+    public long getEstimatedRuntime() {
+	return (long) (this.job.getCloudlet().getCloudletLength() / this.chosenInstanceType.getComputePower());
+    }
+    
+    public static Comparator<SchedulingDecision> timeComparator() {
+	return timeComparator;
+    }
+    
+    /**
+     * Check potential inconsistencies (for debugging purposes)
+     */
+    public void checkSanity() {
+	if (this.startTime < 0) {
+	    throw new Error("Insane scheduling decision. Start time is negative: " + this.startTime);
+	}
+	if (this.instance == null && this.chosenInstanceType == null) {
+	    throw new Error("Insane scheduling decision: No instance was chosen");
+	}
+    }
+}

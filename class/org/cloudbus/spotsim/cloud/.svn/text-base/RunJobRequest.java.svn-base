@@ -1,0 +1,15 @@
+package org.cloudbus.spotsim.cloud;
+
+import lombok.AllArgsConstructor;
+import lombok.Data;
+
+import org.cloudbus.cloudsim.util.workload.Job;
+
+@Data
+@AllArgsConstructor
+public class RunJobRequest {
+
+    private final Job job;
+
+    private final Instance instance;
+}

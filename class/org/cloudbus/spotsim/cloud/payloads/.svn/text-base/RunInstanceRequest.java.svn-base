@@ -1,0 +1,27 @@
+package org.cloudbus.spotsim.cloud.payloads;
+
+import lombok.Data;
+
+import org.cloudbus.cloudsim.util.workload.Job;
+import org.cloudbus.spotsim.cloud.InstanceType;
+import org.cloudbus.spotsim.cloud.InstanceType.OS;
+import org.cloudbus.spotsim.cloud.InstanceType.PriceModel;
+import org.cloudbus.spotsim.cloud.InstanceType.Region;
+
+@Data
+public class RunInstanceRequest {
+
+    private final InstanceType type;
+
+    private final Job job;
+
+    private final PriceModel priceModel;
+
+    private final OS os;
+
+    private final double bidPrice;
+
+    private final int brokerID;
+
+    private final Region region;
+}

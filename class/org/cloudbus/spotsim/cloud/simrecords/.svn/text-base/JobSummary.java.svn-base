@@ -1,0 +1,52 @@
+package org.cloudbus.spotsim.cloud.simrecords;
+
+import lombok.Data;
+
+import org.cloudbus.cloudsim.util.workload.Job;
+import org.cloudbus.cloudsim.util.workload.Job.JobStatus;
+import org.cloudbus.spotsim.cloud.InstanceType;
+
+@Data
+/**
+ * For simulation statistics only. Adds some fields that are not contained in CloudSim's Job class
+ */
+public class JobSummary {
+
+    private int jobID;
+    private long submitTime;
+    private long jobSize;
+    private long scheduledStartTime;
+    private long actualStartTime;
+    private long actualEndTime;
+    private long deadline;
+    private double budget;
+    private InstanceType instanceTypeUsed;
+    private boolean startedANewInstance;
+    private long estimatedRunTime;
+    private JobStatus finalStatus;
+    private double estimatedCost;
+    private double actualCost;
+    
+    public JobSummary(Job j) {
+	this.jobID = j.getCloudlet().getCloudletId();
+	this.submitTime = j.getSubmitTime();
+	this.jobSize = j.getCloudlet().getCloudletLength();
+	this.deadline = j.getDeadline();
+	this.budget = j.getBudget();
+    }
+    
+    @Override
+    public String toString() {
+        StringBuilder builder = new StringBuilder();
+        builder.append(this.jobID).append(",").append(this.submitTime)
+    	.append(",").append(this.jobSize).append(",")
+    	.append(this.scheduledStartTime).append(",").append(this.actualStartTime)
+    	.append(",").append(this.actualEndTime).append(",").append(this.deadline)
+    	.append(",").append(this.budget).append(",").append(this.instanceTypeUsed)
+    	.append(",").append(this.startedANewInstance).append(",")
+    	.append(this.estimatedRunTime).append(",").append(this.finalStatus)
+    	.append(",").append(this.estimatedCost).append(",")
+    	.append(this.actualCost);
+        return builder.toString();
+    }
+}

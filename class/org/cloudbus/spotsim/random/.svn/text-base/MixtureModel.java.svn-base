@@ -1,0 +1,17 @@
+package org.cloudbus.spotsim.random;
+
+import lombok.AllArgsConstructor;
+import lombok.Data;
+
+@Data
+@AllArgsConstructor
+public class MixtureModel {
+
+    private int k;
+
+    private double[] p;
+
+    private double[] mu;
+
+    private double[] sigma;
+}

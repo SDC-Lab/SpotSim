@@ -1,0 +1,13 @@
+package org.cloudbus.spotsim.cloud.payloads;
+
+import lombok.AllArgsConstructor;
+import lombok.Data;
+
+import org.cloudbus.spotsim.cloud.Instance;
+
+@Data
+@AllArgsConstructor
+public class InstanceCreatedNotification {
+
+    private final Instance instance;
+}

@@ -1,0 +1,14 @@
+package org.cloudbus.spotsim.cloud;
+
+import lombok.AllArgsConstructor;
+import lombok.Data;
+
+import org.cloudbus.spotsim.cloud.spothistory.SpotPriceRecord;
+
+@Data
+@AllArgsConstructor
+public class PriceChangeEvent {
+
+    private final InstanceType type;
+    private final SpotPriceRecord priceRecord;
+}
